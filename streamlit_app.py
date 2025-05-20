@@ -66,6 +66,3 @@ if user_input:
                 st.markdown(response)
         else:
             st.error("Please enter your OpenAI API key to continue.")
-
-# Instructions for running
-st.sidebar.markdown("""
