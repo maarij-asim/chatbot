@@ -33,8 +33,8 @@ def get_chatbot_response(user_input, model="gpt-4o-mini", max_tokens=150):
         return f"Error: {str(e)}"
 
 # Streamlit UI
-st.title("Chatbot with OpenAI")
-st.write("Enter your message below. Type 'quit' to clear the chat.")
+st.title("Chatbot Maarij")
+st.write("I am your AI assistant,What can I help you today.")
 
 # Initialize session state for chat history
 if "messages" not in st.session_state:
