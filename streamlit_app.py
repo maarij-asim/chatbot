@@ -4,9 +4,13 @@ import os
 import requests
 from io import BytesIO
 
-# Hardcoded OpenAI API key (replace with your actual key)
-OPENAI_API_KEY = "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"  # Replace this with your actual OpenAI API key
-os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+# Set up OpenAI API key
+if "OPENAI_API_KEY" not in os.environ:
+    api_key = st.text_input("Enter your OpenAI API key:", type="password")
+    if api_key:
+        os.environ["OPENAI_API_KEY"] = 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
+else:
+    api_key = os.environ["OPENAI_API_KEY"]
 
 # Initialize OpenAI client
 try:
@@ -71,6 +75,8 @@ if user_input:
         st.session_state.messages = []
         st.session_state.images = []
         st.experimental_rerun()
+    elif not api_key:
+        st.error("Please enter your OpenAI API key to continue.")
     else:
         # Add user message to history
         st.session_state.messages.append({"role": "user", "content": user_input})
@@ -104,13 +110,3 @@ if user_input:
             st.session_state.messages.append({"role": "assistant", "content": response})
             with st.chat_message("assistant"):
                 st.markdown(response)
-
-# Instructions for running
-st.sidebar.markdown("""
-### How to Run
-1. Install dependencies: `pip install streamlit openai requests`
-2. Ensure the OpenAI API key is set in the code.
-3. Run the app: `streamlit run chatbot.py`
-4. Start chatting or generating images!
-5. If issues occur, ensure Python environment is set correctly in VS Code.
-""")
