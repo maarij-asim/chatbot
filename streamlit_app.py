@@ -8,7 +8,7 @@ from io import BytesIO
 if "OPENAI_API_KEY" not in os.environ:
     api_key = st.text_input("Enter your OpenAI API key:", type="password")
     if api_key:
-        os.environ["OPENAI_API_KEY"] = 
+        os.environ["OPENAI_API_KEY"] = api_key
 else:
     api_key = os.environ["OPENAI_API_KEY"]
 
