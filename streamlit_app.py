@@ -45,8 +45,8 @@ def generate_image(prompt):
         return f"Error: {str(e)}"
 
 # Streamlit UI
-st.title("Chatbot with OpenAI (Text & Image)")
-st.write("Type 'generate image <description>' to create an image. Type 'quit' to clear the chat.")
+st.title("Chatbot,s MAARIJ")
+st.write("I am your AI assistant,What can I help you today")
 
 # Initialize session state for chat history and images
 if "messages" not in st.session_state:
@@ -64,7 +64,7 @@ for image_url in st.session_state.images:
     st.image(image_url, caption="Generated Image", use_column_width=False, width=300)
 
 # Input field for user message
-user_input = st.chat_input("Ask anything or type 'generate image <description>':")
+user_input = st.chat_input("Ask anything")
 
 if user_input:
     if user_input.lower() == "quit":
