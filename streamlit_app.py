@@ -46,7 +46,7 @@ def generate_image(prompt):
 
 # Streamlit UI
 st.title("Chatbot,s MAARIJ")
-st.write("I am your AI assistant,What can I help you today")
+st.write("Hey what can I help you today")
 
 # Initialize session state for chat history and images
 if "messages" not in st.session_state:
