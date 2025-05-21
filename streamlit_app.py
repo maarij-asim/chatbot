@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 
 # Hardcoded OpenAI API key (replace with your actual key)
-OPENAI_API_KEY = "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"  # Replace this with your actual OpenAI API key
+OPENAI_API_KEY = "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"  # Replace this with your actual OpenAI API key
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 # Initialize OpenAI client
@@ -45,8 +45,8 @@ def generate_image(prompt):
         return f"Error: {str(e)}"
 
 # Streamlit UI
-st.title("Chatbot,s MAARIJ")
-st.write("Hey what can I help you today")
+st.title("Chatbot with OpenAI (Text & Image)")
+st.write("Type 'generate image <description>' to create an image. Type 'quit' to clear the chat.")
 
 # Initialize session state for chat history and images
 if "messages" not in st.session_state:
@@ -64,7 +64,7 @@ for image_url in st.session_state.images:
     st.image(image_url, caption="Generated Image", use_column_width=False, width=300)
 
 # Input field for user message
-user_input = st.chat_input("Ask anything")
+user_input = st.chat_input("Ask anything or type 'generate image <description>':")
 
 if user_input:
     if user_input.lower() == "quit":
@@ -105,3 +105,12 @@ if user_input:
             with st.chat_message("assistant"):
                 st.markdown(response)
 
+# Instructions for running
+st.sidebar.markdown("""
+### How to Run
+1. Install dependencies: `pip install streamlit openai requests`
+2. Ensure the OpenAI API key is set in the code.
+3. Run the app: `streamlit run chatbot.py`
+4. Start chatting or generating images!
+5. If issues occur, ensure Python environment is set correctly in VS Code.
+""")
