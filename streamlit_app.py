@@ -5,7 +5,7 @@ import requests
 from io import BytesIO
 
 # Hardcoded OpenAI API key (replace with your actual key)
-OPENAI_API_KEY = "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"  # Replace this with your actual OpenAI API key
+OPENAI_API_KEY = "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"  # Replace this with your actual OpenAI API key
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 # Initialize OpenAI client
