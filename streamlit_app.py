@@ -75,9 +75,7 @@ import pytz
 # Load OpenAI API key from Streamlit secrets
 try:
     OPENAI_API_KEY = st.secrets["OpenAI_key"]
-except KeyError:
-    st.error("OpenAI API key not found in Streamlit secrets. Please add 'OpenAI_key' to your secrets.")
-    st.stop()
+ st.stop()
 os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
 
 # Optional: Check for a whitelist (if you want to restrict access)
