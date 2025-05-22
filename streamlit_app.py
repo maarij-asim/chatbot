@@ -66,6 +66,7 @@
 
 
 # Chatbot App with Professional ChatGPT-style UI
+pip install openai==0.28
 import streamlit as st
 import openai
 import os
