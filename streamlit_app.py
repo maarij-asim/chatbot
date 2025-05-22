@@ -76,7 +76,7 @@ import uuid
 
 # Page configuration
 st.set_page_config(
-    page_title="ChatGPT-Style Assistant",
+    page_title="Chatbot by Maarij",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -394,8 +394,8 @@ def main():
             st.rerun()
 
     # Main content area
-    st.title("🤖 ChatGPT-Style Assistant")
-    st.markdown("*Powered by OpenAI*")
+    st.title("🤖 Assistant")
+    st.markdown("*made by maarij-asim*")
     
     # API Key Status
     if not st.session_state.api_key_set:
