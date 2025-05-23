@@ -567,7 +567,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-```
+
 
 ### Explanation of Changes
 1. **Web Speech API**:
