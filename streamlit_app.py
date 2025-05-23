@@ -65,7 +65,6 @@
 #             st.error("Please enter your OpenAI API key to continue.")
 
 
-```python
 import streamlit as st
 import openai
 import os
