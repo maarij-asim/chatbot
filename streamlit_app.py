@@ -63,20 +63,20 @@
 #                 st.markdown(response)
 #         else:
 #             st.error("Please enter your OpenAI API key to continue.")
-
-
+```python
 import streamlit as st
 import openai
 import os
-import json
 import time
 from datetime import datetime
 import uuid
-import streamlit.components.v1 as components
+import pyttsx3
+import tempfile
+import base64
 
 # Page configuration
 st.set_page_config(
-    page_title="Chatbot by Maarij",
+    page_title="AI Speech Chatbot",
     page_icon="🤖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -85,17 +85,12 @@ st.set_page_config(
 # Custom CSS for ChatGPT-like styling
 st.markdown("""
 <style>
-    /* Main app styling */
     .main > div {
         padding: 1rem 2rem;
     }
-    
-    /* Sidebar styling */
     .css-1d391kg {
         background-color: #171717;
     }
-    
-    /* Chat message styling */
     .user-message {
         background-color: #2f2f2f;
         padding: 1rem;
@@ -103,7 +98,6 @@ st.markdown("""
         margin: 0.5rem 0;
         border-left: 4px solid #5436da;
     }
-    
     .assistant-message {
         background-color: #343541;
         padding: 1rem;
@@ -111,7 +105,6 @@ st.markdown("""
         margin: 0.5rem 0;
         border-left: 4px solid #10a37f;
     }
-    
     .message-avatar {
         display: inline-block;
         width: 32px;
@@ -123,26 +116,20 @@ st.markdown("""
         font-size: 14px;
         margin-right: 12px;
     }
-    
     .user-avatar {
         background-color: #5436da;
         color: white;
     }
-    
     .assistant-avatar {
         background-color: #10a37f;
         color: white;
     }
-    
-    /* Input styling */
     .stTextArea textarea {
         background-color: #40414f;
         color: white;
         border: 1px solid #565869;
         border-radius: 12px;
     }
-    
-    /* Button styling */
     .stButton > button {
         background-color: #10a37f;
         color: white;
@@ -151,11 +138,9 @@ st.markdown("""
         padding: 0.5rem 1rem;
         font-weight: 500;
     }
-    
     .stButton > button:hover {
         background-color: #0d8a6b;
     }
-    
     .new-chat-btn {
         background-color: #2f2f2f !important;
         color: white !important;
@@ -163,7 +148,6 @@ st.markdown("""
         width: 100% !important;
         margin-bottom: 1rem !important;
     }
-    
     .success-message {
         background-color: #10a37f;
         color: white;
@@ -171,7 +155,6 @@ st.markdown("""
         border-radius: 6px;
         margin: 0.5rem 0;
     }
-    
     .error-message {
         background-color: #d73a49;
         color: white;
@@ -179,29 +162,54 @@ st.markdown("""
         border-radius: 6px;
         margin: 0.5rem 0;
     }
-    
-    /* Hide Streamlit default elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
-# JavaScript for Text-to-Speech
-def speak_text(text):
-    js_code = f"""
-    <script>
-        function speakText() {{
-            var utterance = new SpeechSynthesisUtterance("{text}");
-            utterance.lang = 'en-US';
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
-        }}
-        speakText();
-    </script>
-    """
-    components.html(js_code, height=0)
+# Initialize pyttsx3 engine
+def init_tts_engine():
+    try:
+        engine = pyttsx3.init()
+        engine.setProperty('rate', 150)  # Speed
+        engine.setProperty('volume', 0.9)  # Volume (0.0 to 1.0)
+        voices = engine.getProperty('voices')
+        for voice in voices:
+            if 'en-us' in voice.id.lower():  # Select an English US voice
+                engine.setProperty('voice', voice.id)
+                break
+        return engine
+    except Exception as e:
+        st.error(f"TTS Engine Error: {str(e)}")
+        return None
+
+# Convert text to audio file
+def text_to_audio(text):
+    engine = init_tts_engine()
+    if not engine:
+        return None
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as tmp_file:
+        audio_file = tmp_file.name
+        try:
+            engine.save_to_file(text, audio_file)
+            engine.runAndWait()
+            return audio_file
+        except Exception as e:
+            st.error(f"TTS Conversion Error: {str(e)}")
+            return None
+
+# Convert audio file to base64 for browser playback
+def audio_to_base64(audio_file):
+    try:
+        with open(audio_file, 'rb') as f:
+            audio_data = f.read()
+        base64_audio = base64.b64encode(audio_data).decode('utf-8')
+        os.remove(audio_file)  # Clean up temporary file
+        return base64_audio
+    except Exception as e:
+        st.error(f"Audio Encoding Error: {str(e)}")
+        return None
 
 # Initialize session state
 def init_session_state():
@@ -216,9 +224,9 @@ def init_session_state():
     if "api_key_set" not in st.session_state:
         st.session_state.api_key_set = False
     if "tts_enabled" not in st.session_state:
-        st.session_state.tts_enabled = True  # Default TTS enabled
+        st.session_state.tts_enabled = True
 
-# Load API key from environment or session
+# Load API key
 def load_api_key():
     if "OPENAI_API_KEY" in os.environ:
         st.session_state.api_key = os.environ["OPENAI_API_KEY"]
@@ -236,7 +244,7 @@ def save_chat():
             "timestamp": datetime.now().isoformat()
         }
 
-# Generate chat title from first message
+# Generate chat title
 def generate_chat_title():
     if st.session_state.messages:
         first_message = st.session_state.messages[0]["content"]
@@ -246,13 +254,13 @@ def generate_chat_title():
 
 # Create new chat
 def new_chat():
-    save_chat()  # Save current chat before creating new one
+    save_chat()
     st.session_state.current_chat_id = str(uuid.uuid4())
     st.session_state.messages = []
 
 # Load existing chat
 def load_chat(chat_id):
-    save_chat()  # Save current chat before switching
+    save_chat()
     if chat_id in st.session_state.chat_history:
         st.session_state.current_chat_id = chat_id
         st.session_state.messages = st.session_state.chat_history[chat_id]["messages"].copy()
@@ -270,24 +278,18 @@ def delete_chat(chat_id):
 async def get_chatbot_response(messages, model="gpt-4o-mini", max_tokens=1000):
     try:
         client = openai.OpenAI(api_key=st.session_state.api_key)
-        
-        # Prepare messages for OpenAI API
         api_messages = [
             {"role": "system", "content": "You are a helpful, knowledgeable, and friendly AI assistant. Provide clear, accurate, and engaging responses."}
         ]
-        
-        # Add conversation history (last 10 messages to stay within token limits)
         recent_messages = messages[-10:] if len(messages) > 10 else messages
         for msg in recent_messages:
             api_messages.append({"role": msg["role"], "content": msg["content"]})
-        
         response = client.chat.completions.create(
             model=model,
             messages=api_messages,
             max_tokens=max_tokens,
             temperature=0.7
         )
-        
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"Error: {str(e)}"
@@ -309,42 +311,36 @@ def display_messages():
                 {message["content"]}
             </div>
             """, unsafe_allow_html=True)
-            # Speak the assistant's response if TTS is enabled
             if st.session_state.tts_enabled:
-                # Escape quotes in the message content to avoid JavaScript errors
-                safe_content = message["content"].replace('"', '\\"').replace('\n', ' ')
-                speak_text(safe_content)
+                audio_file = text_to_audio(message["content"])
+                if audio_file:
+                    base64_audio = audio_to_base64(audio_file)
+                    if base64_audio:
+                        st.audio(f"data:audio/mp3;base64,{base64_audio}", format="audio/mp3", start_time=0)
 
 # Main app
 def main():
     init_session_state()
     load_api_key()
     
-    # Sidebar
     with st.sidebar:
-        st.title("💬 ChatGPT Assistant")
+        st.title("🤖 AI Speech Chatbot")
         
-        # New Chat Button
         if st.button("➕ New Chat", key="new_chat", help="Start a new conversation"):
             new_chat()
             st.rerun()
         
         st.markdown("---")
         
-        # Chat History
         st.subheader("Chat History")
-        
         if st.session_state.chat_history:
-            # Sort chats by timestamp (most recent first)
             sorted_chats = sorted(
                 st.session_state.chat_history.items(), 
                 key=lambda x: x[1]["timestamp"], 
                 reverse=True
             )
-            
             for chat_id, chat_data in sorted_chats:
                 col1, col2 = st.columns([3, 1])
-                
                 with col1:
                     if st.button(
                         chat_data["title"], 
@@ -353,7 +349,6 @@ def main():
                     ):
                         load_chat(chat_id)
                         st.rerun()
-                
                 with col2:
                     if st.button("🗑️", key=f"delete_{chat_id}", help="Delete this chat"):
                         delete_chat(chat_id)
@@ -363,10 +358,7 @@ def main():
         
         st.markdown("---")
         
-        # Settings
         st.subheader("⚙️ Settings")
-        
-        # API Key Management
         if not st.session_state.api_key_set:
             st.warning("Please set your OpenAI API key")
             api_key_input = st.text_input(
@@ -375,7 +367,6 @@ def main():
                 placeholder="sk-...",
                 help="Enter your OpenAI API key"
             )
-            
             if st.button("Set API Key"):
                 if api_key_input and api_key_input.startswith("sk-"):
                     st.session_state.api_key = api_key_input
@@ -392,14 +383,11 @@ def main():
                 st.session_state.api_key_set = False
                 st.rerun()
         
-        # Model Selection
         model_option = st.selectbox(
             "Model",
             ["gpt-4o-mini", "gpt-4", "gpt-3.5-turbo"],
             help="Choose the AI model"
         )
-        
-        # Max Tokens
         max_tokens = st.slider(
             "Max Tokens",
             min_value=50,
@@ -408,29 +396,22 @@ def main():
             step=50,
             help="Maximum response length"
         )
-        
-        # Text-to-Speech Toggle
         st.session_state.tts_enabled = st.checkbox(
             "Enable Text-to-Speech",
             value=st.session_state.tts_enabled,
-            help="Toggle to enable/disable reading assistant responses aloud"
+            help="Toggle to enable/disable audio playback of assistant responses"
         )
-        
-        # Clear Current Chat
         if st.button("🗑️ Clear Current Chat", help="Clear current conversation"):
             st.session_state.messages = []
             st.rerun()
 
-    # Main content area
-    st.title("🤖 Assistant")
+    st.title("🤖 AI Speech Chatbot")
     st.markdown("*made by maarij-asim*")
     
-    # API Key Status
     if not st.session_state.api_key_set:
         st.error("⚠️ Please set your OpenAI API key in the sidebar to start chatting")
         return
     
-    # Welcome message for new chats
     if not st.session_state.messages:
         st.markdown("""
         ### Welcome! 👋
@@ -444,10 +425,7 @@ def main():
         
         **Example prompts to get started:**
         """)
-        
-        # Example buttons
         col1, col2 = st.columns(2)
-        
         with col1:
             if st.button("💡 Explain quantum computing simply"):
                 st.session_state.messages.append({
@@ -455,14 +433,12 @@ def main():
                     "content": "Explain quantum computing in simple terms"
                 })
                 st.rerun()
-            
             if st.button("💻 Help debug JavaScript code"):
                 st.session_state.messages.append({
                     "role": "user", 
                     "content": "Help me debug this JavaScript code"
                 })
                 st.rerun()
-        
         with col2:
             if st.button("✍️ Write a creative short story"):
                 st.session_state.messages.append({
@@ -470,7 +446,6 @@ def main():
                     "content": "Write a creative short story about time travel"
                 })
                 st.rerun()
-            
             if st.button("🍽️ Plan a healthy meal"):
                 st.session_state.messages.append({
                     "role": "user", 
@@ -478,16 +453,11 @@ def main():
                 })
                 st.rerun()
     
-    # Display chat messages
     if st.session_state.messages:
         display_messages()
     
-    # Chat input
     st.markdown("---")
-    
-    # Create columns for input and button
     input_col, button_col = st.columns([4, 1])
-    
     with input_col:
         user_input = st.text_area(
             "Message",
@@ -495,58 +465,37 @@ def main():
             height=100,
             label_visibility="collapsed"
         )
-    
     with button_col:
-        st.markdown("<br>", unsafe_allow_html=True)  # Add some spacing
+        st.markdown("<br>", unsafe_allow_html=True)
         send_button = st.button("➤ Send", type="primary", use_container_width=True)
     
-    # Handle message sending
     if send_button and user_input.strip():
         if not st.session_state.current_chat_id:
             st.session_state.current_chat_id = str(uuid.uuid4())
-        
-        # Add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
-        
-        # Show user message
         st.markdown(f"""
         <div class="user-message">
             <span class="message-avatar user-avatar">You</span>
             {user_input}
         </div>
         """, unsafe_allow_html=True)
-        
-        # Get AI response
         with st.spinner("🤔 Thinking..."):
             try:
-                # Create a synchronous wrapper for the async function
                 import asyncio
-                
-                # Get or create event loop
                 try:
                     loop = asyncio.get_event_loop()
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                
-                # Run the async function
                 response = loop.run_until_complete(
                     get_chatbot_response(st.session_state.messages, model_option, max_tokens)
                 )
-                
-                # Add AI response
                 st.session_state.messages.append({"role": "assistant", "content": response})
-                
-                # Save chat
                 save_chat()
-                
-                # Rerun to show the new message
                 st.rerun()
-                
             except Exception as e:
                 st.error(f"Error getting response: {str(e)}")
     
-    # Handle special commands
     if user_input.lower().strip() == "/clear":
         st.session_state.messages = []
         st.rerun()
@@ -554,36 +503,116 @@ def main():
         new_chat()
         st.rerun()
     
-    # Instructions at bottom
     st.markdown("---")
     st.markdown("""
     **Tips:**
     - Use /clear to clear current chat
     - Use /new to start a new chat
     - Press Ctrl+Enter in the text area to send quickly
-    - Use the sidebar to manage your chat history
-    - Toggle Text-to-Speech in the sidebar
+    - Use the sidebar to manage chat history and TTS settings
+    - Audio responses are playable below each assistant message
     """)
 
 if __name__ == "__main__":
     main()
+```
 
+### Key Features
+1. **Python-Based TTS**:
+   - Uses `pyttsx3` to generate audio files for assistant responses.
+   - Audio is saved as temporary MP3 files, converted to base64, and embedded in the UI using `st.audio` for browser playback.
+   - Configured for English (US) voice with adjustable rate and volume.
 
-### Explanation of Changes
-1. **Web Speech API**:
-   - Added a `speak_text` function that uses the Web Speech API (`SpeechSynthesisUtterance`) to convert text to speech in the browser.
-   - The JavaScript code is injected using `streamlit.components.v1.html` with a height of 0 to avoid visual clutter.
-   - The `lang`, `rate`, and `pitch` properties are set for a clear, natural-sounding voice (English US, default speed, and pitch).
+2. **General-Purpose AI**:
+   - System prompt is generic: “You are a helpful, knowledgeable, and friendly AI assistant.”
+   - Supports a wide range of queries via OpenAI API (e.g., explanations, coding, creative writing).
 
-2. **Text-to-Speech Trigger**:
-   - In the `display_messages` function, after rendering an assistant message, the response content is passed to `speak_text` if TTS is enabled.
-   - The message content is escaped (replacing quotes and newlines) to prevent JavaScript errors.
+3. **Streamlit UI**:
+   - Retains the ChatGPT-like interface with user/assistant message styling.
+   - Includes chat history, model selection, and max tokens settings in the sidebar.
+   - TTS toggle to enable/disable audio playback.
 
-3. **TTS Toggle**:
-   - Added a checkbox in the sidebar (`Enable Text-to-Speech`) to allow users to enable/disable TTS.
-   - Stored in `st.session_state.tts_enabled`, defaulting to `True`.
+4. **Audio Playback**:
+   - Each assistant response is accompanied by an audio player for the spoken response.
+   - Audio is generated on the server and streamed to the client.
 
-4. **Dependencies**:
-   - Added `import streamlit.components.v1 as components` to support JavaScript injection.
-   - No additional Python packages are required since the Web Speech API is browser-based.
+### Prerequisites
+- **Install Dependencies**:
+  ```bash
+  pip install streamlit openai pyttsx3
+  ```
+- **Additional Setup**:
+  - On Windows, `pyttsx3` uses SAPI5 (built-in).
+  - On Linux, install `espeak` and `ffmpeg`:
+    ```bash
+    sudo apt-get install espeak ffmpeg
+    ```
+  - On macOS, `pyttsx3` uses NSSpeechSynthesizer (built-in).
+- **OpenAI API Key**: Set via environment variable (`OPENAI_API_KEY`) or sidebar input.
+- **Run the App**:
+  ```bash
+  streamlit run ai_speech_chatbot.py
+  ```
 
+### How It Works
+1. **Chat Interaction**:
+   - Enter a message (e.g., “Explain quantum computing”) and click “Send.”
+   - The OpenAI API generates a response, displayed in the UI.
+2. **TTS**:
+   - If TTS is enabled (via sidebar checkbox), `pyttsx3` converts the assistant’s response to an MP3 file.
+   - The MP3 is encoded to base64 and embedded in the UI with an audio player.
+3. **Playback**:
+   - Click the play button below each assistant message to hear the response.
+   - Note: Auto-play may be restricted by browser policies; users may need to click to play.
+
+### Limitations
+- **Server-Side Audio**: `pyttsx3` generates audio on the server, so playback requires manual interaction in the browser. Streaming live audio is complex in Streamlit.
+- **Voice Options**: Limited to `pyttsx3` voices (depends on the system). You can customize voices in `init_tts_engine` if needed.
+- **Performance**: Generating audio for long responses may be slow; consider truncating text for TTS if necessary.
+- **Browser Playback**: Audio players are embedded per message, which may clutter the UI for long conversations.
+
+### Integration with Quraic Academy Webpage
+If you want to link this chatbot to the Quraic Academy webpage (from your first query), you can:
+1. **Host the Streamlit App**:
+   - Deploy the app on Streamlit Cloud, Heroku, or a local server.
+   - Get the public URL (e.g., `https://your-app.streamlit.app`).
+2. **Link from Webpage**:
+   - Add a button or link in the Quraic Academy `index.html`:
+     ```html
+     <a href="https://your-app.streamlit.app" class="bg-green-600 text-white px-6 py-3 rounded-full font-semibold hover:bg-green-700">Chat with AI Assistant</a>
+     ```
+   - Place it in the contact section or a new section.
+3. **Embed via Iframe**:
+   - Embed the Streamlit app in the webpage:
+     ```html
+     <section id="chatbot" class="py-16">
+         <div class="container mx-auto px-6 text-center">
+             <h2 class="text-3xl font-bold mb-8">AI Speech Chatbot</h2>
+             <iframe src="https://your-app.streamlit.app" width="100%" height="600px" frameborder="0"></iframe>
+         </div>
+     </section>
+     ```
+   - Add this section to `index.html` after the contact section.
+
+### Enhancements
+- **Voice Customization**: Add a dropdown to select `pyttsx3` voices (list available voices dynamically).
+- **Auto-Play**: Attempt client-side JavaScript to auto-play audio (though browser policies may block this).
+- **Response Truncation**: Limit TTS to the first 100 words for long responses to improve performance.
+- **Local Playback**: If you’re running locally and want server-side audio playback (not just in the browser), modify `text_to_audio` to use `engine.say()` instead of saving to a file.
+
+### Example Usage
+1. Run the app:
+   ```bash
+   streamlit run ai_speech_chatbot.py
+   ```
+2. Set your OpenAI API key in the sidebar.
+3. Type a message (e.g., “Tell me a story”) and click “Send.”
+4. The assistant’s response appears with an audio player below it.
+5. Click the player to hear the response, or toggle TTS off in the sidebar.
+
+### Troubleshooting
+- **TTS Errors**: Ensure `pyttsx3` dependencies are installed (e.g., `espeak` on Linux).
+- **Audio Not Playing**: Check browser permissions for audio playback.
+- **Long Responses**: If audio generation is slow, limit `max_tokens` in the sidebar.
+
+If you want specific customizations (e.g., different voices, auto-play, or integration details for the Quraic Academy webpage), please let me know, and I’ll adjust the code accordingly!
