@@ -65,7 +65,7 @@
 #             st.error("Please enter your OpenAI API key to continue.")
 
 
-# Chatbot App with Professional ChatGPT-style UI
+```python
 import streamlit as st
 import openai
 import os
@@ -73,6 +73,7 @@ import json
 import time
 from datetime import datetime
 import uuid
+import streamlit.components.v1 as components
 
 # Page configuration
 st.set_page_config(
@@ -156,7 +157,6 @@ st.markdown("""
         background-color: #0d8a6b;
     }
     
-    /* Sidebar button styling */
     .new-chat-btn {
         background-color: #2f2f2f !important;
         color: white !important;
@@ -165,7 +165,6 @@ st.markdown("""
         margin-bottom: 1rem !important;
     }
     
-    /* Success/Error messages */
     .success-message {
         background-color: #10a37f;
         color: white;
@@ -189,6 +188,22 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# JavaScript for Text-to-Speech
+def speak_text(text):
+    js_code = f"""
+    <script>
+        function speakText() {{
+            var utterance = new SpeechSynthesisUtterance("{text}");
+            utterance.lang = 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }}
+        speakText();
+    </script>
+    """
+    components.html(js_code, height=0)
+
 # Initialize session state
 def init_session_state():
     if "messages" not in st.session_state:
@@ -201,6 +216,8 @@ def init_session_state():
         st.session_state.api_key = ""
     if "api_key_set" not in st.session_state:
         st.session_state.api_key_set = False
+    if "tts_enabled" not in st.session_state:
+        st.session_state.tts_enabled = True  # Default TTS enabled
 
 # Load API key from environment or session
 def load_api_key():
@@ -251,7 +268,7 @@ def delete_chat(chat_id):
             new_chat()
 
 # Get chatbot response
-async def get_chatbot_response(messages, model="gpt-4o-mini",max_tokens=1000):
+async def get_chatbot_response(messages, model="gpt-4o-mini", max_tokens=1000):
     try:
         client = openai.OpenAI(api_key=st.session_state.api_key)
         
@@ -293,6 +310,11 @@ def display_messages():
                 {message["content"]}
             </div>
             """, unsafe_allow_html=True)
+            # Speak the assistant's response if TTS is enabled
+            if st.session_state.tts_enabled:
+                # Escape quotes in the message content to avoid JavaScript errors
+                safe_content = message["content"].replace('"', '\\"').replace('\n', ' ')
+                speak_text(safe_content)
 
 # Main app
 def main():
@@ -386,6 +408,13 @@ def main():
             value=1000,
             step=50,
             help="Maximum response length"
+        )
+        
+        # Text-to-Speech Toggle
+        st.session_state.tts_enabled = st.checkbox(
+            "Enable Text-to-Speech",
+            value=st.session_state.tts_enabled,
+            help="Toggle to enable/disable reading assistant responses aloud"
         )
         
         # Clear Current Chat
@@ -534,7 +563,64 @@ def main():
     - Use /new to start a new chat
     - Press Ctrl+Enter in the text area to send quickly
     - Use the sidebar to manage your chat history
+    - Toggle Text-to-Speech in the sidebar
     """)
 
 if __name__ == "__main__":
     main()
+```
+
+### Explanation of Changes
+1. **Web Speech API**:
+   - Added a `speak_text` function that uses the Web Speech API (`SpeechSynthesisUtterance`) to convert text to speech in the browser.
+   - The JavaScript code is injected using `streamlit.components.v1.html` with a height of 0 to avoid visual clutter.
+   - The `lang`, `rate`, and `pitch` properties are set for a clear, natural-sounding voice (English US, default speed, and pitch).
+
+2. **Text-to-Speech Trigger**:
+   - In the `display_messages` function, after rendering an assistant message, the response content is passed to `speak_text` if TTS is enabled.
+   - The message content is escaped (replacing quotes and newlines) to prevent JavaScript errors.
+
+3. **TTS Toggle**:
+   - Added a checkbox in the sidebar (`Enable Text-to-Speech`) to allow users to enable/disable TTS.
+   - Stored in `st.session_state.tts_enabled`, defaulting to `True`.
+
+4. **Dependencies**:
+   - Added `import streamlit.components.v1 as components` to support JavaScript injection.
+   - No additional Python packages are required since the Web Speech API is browser-based.
+
+### How It Works
+- When the assistant generates a response, it is displayed as before, but if TTS is enabled, the response is also spoken aloud using the browser's speech synthesis engine.
+- The speech is triggered automatically after the assistant's message is rendered.
+- Users can toggle TTS on/off via the sidebar checkbox.
+- The voice uses the browser's default English (US) voice, but this can be customized further if needed (e.g., by selecting specific voices available in the browser).
+
+### Prerequisites
+- Ensure you have the required Python packages installed:
+  ```bash
+  pip install streamlit openai
+  ```
+- Set your OpenAI API key either as an environment variable (`OPENAI_API_KEY`) or via the sidebar input.
+- Run the app using:
+  ```bash
+  streamlit run chatbot_with_tts.py
+  ```
+
+### Notes
+- **Browser Compatibility**: The Web Speech API is supported in most modern browsers (Chrome, Edge, Safari, etc.). Ensure you're using a compatible browser.
+- **Voice Customization**: The default voice is `en-US`. To customize voices, you can modify the JavaScript in `speak_text` to select from available browser voices (e.g., `speechSynthesis.getVoices()`), but this requires additional JavaScript logic.
+- **Performance**: The TTS runs client-side in the browser, so it doesn't impact server performance.
+- **Limitations**: The Web Speech API may not work well with very long responses or special characters. The code escapes quotes and newlines, but you may need to handle additional edge cases (e.g., very long text) by truncating or preprocessing the input.
+
+### Example Usage
+1. Run the app and set your OpenAI API key in the sidebar.
+2. Type a message (e.g., "Tell me a story") and click "Send."
+3. The assistant's response will be displayed and spoken aloud (if TTS is enabled).
+4. Toggle the "Enable Text-to-Speech" checkbox in the sidebar to turn speech on/off.
+
+### Further Enhancements
+- **Voice Selection**: Add a dropdown to select different voices available in the browser.
+- **Speech Controls**: Add buttons to pause/resume/cancel speech.
+- **Language Support**: Allow users to select different languages for TTS.
+- **Volume Control**: Add a slider for speech volume.
+
+If you want any of these enhancements or have specific requirements (e.g., a particular voice, language, or additional features), let me know, and I can modify the code further!
