@@ -251,7 +251,7 @@ def delete_chat(chat_id):
             new_chat()
 
 # Get chatbot response
-async def get_chatbot_response(messages, model="gpt-4",max_tokens=1000):
+async def get_chatbot_response(messages, model="gpt-4o-mini",max_tokens=1000):
     try:
         client = openai.OpenAI(api_key=st.session_state.api_key)
         
