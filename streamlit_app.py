@@ -385,7 +385,7 @@ def main():
 
     # Main content area
     st.title("Chatbot")
-    st.markdown("*made by maarij-asim*")
+    st.markdown("*Made by Maarij Zeeshan*")
     
     # API Key Status
     if not st.session_state.api_key_set:
