@@ -67,7 +67,6 @@ import uuid
 
 # Page configuration
 st.set_page_config(
-    page_title="Chatbot by Maarij",
     page_icon="https://instagram.fkhi2-2.fna.fbcdn.net/v/t1.15752-9/491219689_977675274440582_5502547115889655741_n.jpg?stp=dst-jpg_s480x480_tt6&_nc_cat=108&ccb=1-7&_nc_sid=0024fc&_nc_ohc=NTWrSfIab8sQ7kNvwEor_AE&_nc_oc=Adk7IC74HY10qHcwqzoVScSXi9WpTvK9cGz05b92PP1bL2GdjIuOzxx2mrAvPySFEUs&_nc_zt=23&_nc_ht=instagram.fkhi2-2.fna&oh=03_Q7cD2QHvad8pZ9oYgX-UWkshsquk6q3o9NoPaXQ0BjZd63QZMg&oe=685E556A",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -385,7 +384,7 @@ def main():
             st.rerun()
 
     # Main content area
-    st.title("🤖 Assistant")
+    st.title("https://instagram.fkhi2-2.fna.fbcdn.net/v/t1.15752-9/491219689_977675274440582_5502547115889655741_n.jpg?stp=dst-jpg_s480x480_tt6&_nc_cat=108&ccb=1-7&_nc_sid=0024fc&_nc_ohc=NTWrSfIab8sQ7kNvwEor_AE&_nc_oc=Adk7IC74HY10qHcwqzoVScSXi9WpTvK9cGz05b92PP1bL2GdjIuOzxx2mrAvPySFEUs&_nc_zt=23&_nc_ht=instagram.fkhi2-2.fna&oh=03_Q7cD2QHvad8pZ9oYgX-UWkshsquk6q3o9NoPaXQ0BjZd63QZMg&oe=685E556A Assistant")
     st.markdown("*made by maarij-asim*")
     
     # API Key Status
