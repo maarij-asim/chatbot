@@ -63,7 +63,7 @@
 #                 st.markdown(response)
 #         else:
 #             st.error("Please enter your OpenAI API key to continu
-         import streamlit as st
+import streamlit as st
 import openai
 import os
 import json
