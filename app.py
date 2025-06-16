@@ -62,10 +62,8 @@
 #             with st.chat_message("assistant"):
 #                 st.markdown(response)
 #         else:
-#             st.error("Please enter your OpenAI API key to continue.")
-
-
-import streamlit as st
+#             st.error("Please enter your OpenAI API key to continu
+         import streamlit as st
 import openai
 import os
 import json
@@ -259,35 +257,77 @@ def is_image_request(message):
 def extract_image_prompt(message):
     # Remove common prefixes
     prefixes_to_remove = [
-        "generate image of", "create image of", "make image of", "draw",
+        "generate image of", "create image of", "make image of", "draw me",
         "generate picture of", "create picture of", "make picture of",
         "show me", "picture of", "image of", "photo of", "illustration of",
-        "generate", "create", "make", "paint", "sketch", "visualize"
+        "generate an image of", "create an image of", "make an image of",
+        "generate", "create", "make", "paint", "sketch", "visualize", "draw"
     ]
     
-    prompt = message.lower()
+    prompt = message.strip()
+    original_prompt = prompt
+    
+    # Try to remove prefixes (case insensitive)
     for prefix in prefixes_to_remove:
-        if prompt.startswith(prefix):
+        if prompt.lower().startswith(prefix.lower()):
             prompt = prompt[len(prefix):].strip()
+            # Remove leading articles
+            for article in ["a ", "an ", "the "]:
+                if prompt.lower().startswith(article):
+                    prompt = prompt[len(article):].strip()
             break
     
-    # If prompt is still the same, try to extract after keywords
-    if prompt == message.lower():
-        for keyword in ["of ", "a ", "an "]:
-            if keyword in prompt:
-                prompt = prompt.split(keyword, 1)[1]
+    # If no prefix was removed, try to extract after keywords
+    if prompt == original_prompt:
+        lower_prompt = prompt.lower()
+        keywords = [" of ", " a ", " an ", " the "]
+        for keyword in keywords:
+            if keyword in lower_prompt:
+                index = lower_prompt.find(keyword)
+                prompt = prompt[index + len(keyword):].strip()
                 break
     
-    return prompt if prompt != message.lower() else message
+    # If still the same, use the whole message but clean it up
+    if prompt == original_prompt or len(prompt) < 3:
+        prompt = original_prompt
+    
+    # Ensure we have a meaningful prompt
+    if len(prompt.strip()) < 3:
+        prompt = "a beautiful landscape"
+    
+    return prompt
 
 # Generate image using DALL-E
 async def generate_image(prompt, size="1024x1024", quality="standard", style="vivid"):
     try:
+        # Validate and clean the prompt
+        if not prompt or len(prompt.strip()) == 0:
+            return {
+                "success": False,
+                "error": "Please provide a description for the image you want to generate."
+            }
+        
+        # Clean and validate prompt
+        cleaned_prompt = prompt.strip()
+        
+        # Check if prompt is too long (DALL-E 3 has a limit)
+        if len(cleaned_prompt) > 4000:
+            cleaned_prompt = cleaned_prompt[:4000]
+        
+        # Check for potentially problematic content
+        forbidden_words = ["nude", "naked", "nsfw", "explicit", "sexual"]
+        if any(word in cleaned_prompt.lower() for word in forbidden_words):
+            return {
+                "success": False,
+                "error": "Please use appropriate content for image generation."
+            }
+        
         client = openai.OpenAI(api_key=st.session_state.api_key)
         
+        # Make the API call with proper error handling
         response = client.images.generate(
             model="dall-e-3",
-            prompt=prompt,
+            prompt=cleaned_prompt,
             size=size,
             quality=quality,
             style=style,
@@ -295,17 +335,44 @@ async def generate_image(prompt, size="1024x1024", quality="standard", style="vi
         )
         
         image_url = response.data[0].url
-        revised_prompt = response.data[0].revised_prompt
+        revised_prompt = getattr(response.data[0], 'revised_prompt', cleaned_prompt)
         
         return {
             "success": True,
             "image_url": image_url,
             "revised_prompt": revised_prompt
         }
+    except openai.BadRequestError as e:
+        error_message = str(e)
+        if "content_policy_violation" in error_message:
+            return {
+                "success": False,
+                "error": "The image prompt violates content policy. Please try a different description."
+            }
+        elif "billing" in error_message.lower():
+            return {
+                "success": False,
+                "error": "Billing issue detected. Please check your OpenAI account billing status."
+            }
+        else:
+            return {
+                "success": False,
+                "error": f"Request error: {error_message}"
+            }
+    except openai.AuthenticationError as e:
+        return {
+            "success": False,
+            "error": "Authentication failed. Please check your API key."
+        }
+    except openai.RateLimitError as e:
+        return {
+            "success": False,
+            "error": "Rate limit exceeded. Please wait a moment and try again."
+        }
     except Exception as e:
         return {
             "success": False,
-            "error": str(e)
+            "error": f"Unexpected error: {str(e)}"
         }
 
 # Download and display image
@@ -657,6 +724,12 @@ def main():
             # Generate image
             image_prompt = extract_image_prompt(user_input)
             
+            # Validate prompt before generation
+            if not image_prompt or len(image_prompt.strip()) < 3:
+                st.error("❌ Please provide a more detailed description for the image.")
+                st.rerun()
+                return
+            
             with st.spinner("🎨 Generating image..."):
                 try:
                     import asyncio
@@ -686,12 +759,12 @@ def main():
                         
                         st.success("🎨 Image generated successfully!")
                     else:
-                        st.error(f"❌ Error generating image: {result['error']}")
+                        st.error(f"❌ {result['error']}")
                         
                         # Add error message
                         st.session_state.messages.append({
                             "role": "assistant",
-                            "content": f"I encountered an error while generating the image: {result['error']}. Please try again with a different prompt."
+                            "content": f"I couldn't generate the image: {result['error']}. Please try again with a different prompt or check your API settings."
                         })
                     
                     # Save chat
@@ -701,7 +774,12 @@ def main():
                     st.rerun()
                     
                 except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                    st.error(f"❌ Unexpected error: {str(e)}")
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": f"An unexpected error occurred: {str(e)}. Please try again."
+                    })
+                    st.rerun()
         else:
             # Get text response
             with st.spinner("🤔 Thinking..."):
