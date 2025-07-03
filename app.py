@@ -62,4 +62,4 @@ if user_input:
             with st.chat_message("assistant"):
                 st.markdown(response)
         else:
-            st.error("Please enter your OpenAI API key to continu
+            st.error("Please enter your OpenAI API key to continue")
